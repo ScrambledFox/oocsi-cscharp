@@ -1,0 +1,19 @@
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI Test Client.exe
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI Test Client.deps.json
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI Test Client.runtimeconfig.json
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI Test Client.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI Test Client.pdb
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.csproj.AssemblyReference.cache
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.AssemblyInfoInputs.cache
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.AssemblyInfo.cs
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.csproj.CoreCompileInputs.cache
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\refint\OOCSI Test Client.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.pdb
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.genruntimeconfig.cache
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\ref\OOCSI Test Client.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\Newtonsoft.Json.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI.Client.dll
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\bin\Debug\net6.0\OOCSI.Client.pdb
+D:\Projects\oocsi-cscharp\OOCSI\OOCSI Test Client\obj\Debug\net6.0\OOCSI Test Client.csproj.CopyComplete

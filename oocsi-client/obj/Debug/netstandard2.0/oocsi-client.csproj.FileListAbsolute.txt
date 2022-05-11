@@ -1,0 +1,10 @@
+D:\Projects\oocsi-cscharp\oocsi-client\bin\Debug\netstandard2.0\oocsi-client.deps.json
+D:\Projects\oocsi-cscharp\oocsi-client\bin\Debug\netstandard2.0\oocsi-client.dll
+D:\Projects\oocsi-cscharp\oocsi-client\bin\Debug\netstandard2.0\oocsi-client.pdb
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.csproj.AssemblyReference.cache
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.AssemblyInfoInputs.cache
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.AssemblyInfo.cs
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.csproj.CoreCompileInputs.cache
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.dll
+D:\Projects\oocsi-cscharp\oocsi-client\obj\Debug\netstandard2.0\oocsi-client.pdb
