@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Net;
 using System.Net.Sockets;
 
@@ -11,17 +12,28 @@ using OOCSI.Services;
 namespace OOCSI.Sockets {
     internal class SocketClient {
         private static int MULTICAST_PORT = 4448;
-        private static string MULTICAST_GROUP = "224.0.0.144";
+        private static IPAddress MULTICAST_GROUP = IPAddress.Parse("224.0.0.144");
 
         private string _name;
-        private bool _reconnect = false;
-
-        private bool _isConnected = false;
+        private bool _shouldReconnect = false;
 
         private Dictionary<string, Handler> _channels;
         private Dictionary<string, Responder> _services;
 
-        //private SocketClientRunner _runner;
+        private OOCSIClient.LoggingDelegate _loggingDelegate;
+
+        public bool IsConnected => this._runner != null && this._runner.Connected;
+        public bool ShouldReconnect {
+            get { return _shouldReconnect; }
+            set {
+                _shouldReconnect = value;
+                if ( this._runner != null ) {
+                    this._runner.ShouldReconnect = _shouldReconnect;
+                }
+            }
+        }
+
+        private SocketClientRunner _runner;
 
         /// <summary>
         /// Creates a new socket with a given name.
@@ -29,10 +41,11 @@ namespace OOCSI.Sockets {
         /// <param name="name">Client name</param>
         /// <param name="channels"></param>
         /// <param name="services"></param>
-        public SocketClient ( string name, Dictionary<string, Handler> channels, Dictionary<string, Responder> services ) {
+        public SocketClient ( string name, Dictionary<string, Handler> channels, Dictionary<string, Responder> services, OOCSIClient.LoggingDelegate loggingDelegate ) {
             this._name = name;
             this._channels = channels;
             this._services = services;
+            this._loggingDelegate = loggingDelegate;
         }
 
         /// <summary>
@@ -41,18 +54,29 @@ namespace OOCSI.Sockets {
         /// <returns>Returns true if succesfully connected to a found server.</returns>
         public bool StartMulticastLookup () {
             try {
-                UdpClient udpClient = new UdpClient(MULTICAST_PORT);
-                udpClient.Connect(IPAddress.Parse(MULTICAST_GROUP), MULTICAST_PORT);
+                using ( UdpClient udpClient = new UdpClient(MULTICAST_PORT) ) {
+                    udpClient.JoinMulticastGroup(MULTICAST_GROUP);
+                    udpClient.EnableBroadcast = true;
 
-                for ( int i = 0; !this._isConnected && i < 5; i++ ) {
-                    ConnectFromMulticast(udpClient);
+                    for ( int i = 0; !this.IsConnected && i < 5; i++ ) {
+                        this.Log($"Trying to connect to {MULTICAST_GROUP}:{MULTICAST_PORT}...");
 
-                    Thread.Sleep(1000);
+                        CancellationTokenSource cts = new CancellationTokenSource();
+                        Task.Run(() => ConnectFromMulticast(udpClient), cts.Token);
+
+                        Thread.Sleep(1000);
+                        cts.Cancel();
+                    }
+
+                    if ( this.IsConnected ) this.Log($"Connected to {MULTICAST_GROUP}:{MULTICAST_PORT}.");
+                    else this.Log($"Connection attempt failed 5 times.");
+
+                    udpClient.Dispose();
+                    udpClient.Close();
+                    return this.IsConnected;
                 }
-
-                return this._isConnected;
             } catch ( Exception e ) {
-                return false;
+                throw e;
             }
         }
 
@@ -75,17 +99,39 @@ namespace OOCSI.Sockets {
                 }
 
             } catch ( Exception e ) {
-
+                throw e;
             }
         }
 
+        /// <summary>
+        /// Connect to an OOCSI server at {hostname} at {port}
+        /// </summary>
+        /// <param name="hostname">Host Address/IP-Address</param>
+        /// <param name="port">Port</param>
+        /// <returns>True if sucessfully connected.</returns>
         public bool Connect ( string hostname, int port ) {
 
-            return false;
+            if ( this._runner != null ) {
+                this._runner.Disconnect();
+            }
+
+            this._runner = new SocketClientRunner(this._name, hostname, port, this._channels, this._services, this._loggingDelegate);
+            this._runner.ShouldReconnect = this._shouldReconnect;
+
+            while ( this._runner.IsConnecting ) {
+                // BUG:? Suspends the calling thread instead of the runner thread?
+                this._runner.Sleep(100);
+            }
+
+            return this._runner.Connected;
         }
 
-        public void Log ( string msg ) {
+        public void Disconnect () {
+            throw new NotImplementedException();
+        }
 
+        private void Log ( string msg ) {
+            this._loggingDelegate?.Invoke(msg);
         }
 
     }

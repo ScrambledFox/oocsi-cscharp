@@ -9,15 +9,15 @@ using OOCSI.Data;
 
 namespace OOCSI {
     public class OOCSIClient {
-        private SocketClient _socket;
+        private SocketClient _socketClient;
         private string _name;
 
         private Dictionary<string, Handler> _channels = new Dictionary<string, Handler>();
         private Dictionary<string, Responder> _services = new Dictionary<string, Responder>();
 
         public string Name { get => _name; }
-        public bool IsConnected => _socket.IsConnected;
-        public bool IsReconnecting => _socket.IsReconnecting;
+        public bool IsConnected => _socketClient.IsConnected;
+        public bool IsReconnecting => _socketClient.ShouldReconnect;
 
         public delegate void LoggingDelegate ( string msg );
         private LoggingDelegate _logHandler;
@@ -60,23 +60,22 @@ namespace OOCSI {
             }
 
             this._name = name;
-            _socket = new SocketClient(name, _channels, _services);
+            _socketClient = new SocketClient(name, _channels, _services, logHandler);
 
             var assembly = Assembly.GetExecutingAssembly();
             var informationVersion = assembly.
                 GetCustomAttribute<AssemblyInformationalVersionAttribute>().
                 InformationalVersion;
 
-            this.Log("OOCSI-CSHARP client v" + informationVersion + " started: " + name);
+            this.Log("OOCSI-CSHARP client v" + informationVersion + " started with client handle: " + name);
         }
 
         /// <summary>
         /// Connects to OOCSI network based on multi-cased messages broadcasting server ip.
         /// </summary>
         /// <returns>True if client connected succesfully.</returns>
-        /// <exception cref="NotImplementedException"></exception>
         public bool Connect () {
-            throw new NotImplementedException();
+            return this._socketClient.StartMulticastLookup();
         }
 
         /// <summary>
@@ -86,15 +85,15 @@ namespace OOCSI {
         /// <param name="port">Port where the server is running on.</param>
         /// <returns>True if client connected succesfully.</returns>
         public bool Connect ( string hostName, int port ) {
-            throw new NotImplementedException();
+            return this._socketClient.Connect(hostName, port);
         }
 
         /// <summary>
         /// Disconnects from the OOCSI Server.
         /// </summary>
         /// <returns>True if client disconnected succesfully.</returns>
-        public bool Disconnect () {
-            throw new NotImplementedException();
+        public void Disconnect () {
+            this._socketClient.Disconnect();
         }
 
         ///// <summary>
@@ -205,6 +204,7 @@ namespace OOCSI {
         /// <param name="channelName">Channel to sent the data to.</param>
         /// <param name="data">Data to send as a dictionary with a string key and a general object value.</param>
         public void Send ( string channelName, Dictionary<string, Object> data ) {
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -255,10 +255,8 @@ namespace OOCSI {
         /// Logging
         /// </summary>
         /// <param name="msg"></param>
-        public void Log ( string msg ) {
+        private void Log ( string msg ) {
             this._logHandler?.Invoke(msg);
-            //if ( this._loggingDelegate == null ) return;
-            //this._loggingDelegate();
         }
 
     }
