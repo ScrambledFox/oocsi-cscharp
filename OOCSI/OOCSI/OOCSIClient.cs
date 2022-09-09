@@ -79,13 +79,23 @@ namespace OOCSI {
         }
 
         /// <summary>
-        /// Connects to {hostName} on port {port}.
+        /// Connects to {hostName} on port 4444.
         /// </summary>
-        /// <param name="hostName">Server URL to connect to.</param>
+        /// <param name="hostname">Server URL to connect to.</param>
         /// <param name="port">Port where the server is running on.</param>
         /// <returns>True if client connected succesfully.</returns>
-        public bool Connect ( string hostName, int port ) {
-            return this._socketClient.Connect(hostName, port);
+        public bool Connect ( string hostname ) {
+            return this._socketClient.Connect(hostname);
+        }
+
+        /// <summary>
+        /// Connects to {hostName} on port {port}.
+        /// </summary>
+        /// <param name="hostname">Server URL to connect to.</param>
+        /// <param name="port">Port where the server is running on.</param>
+        /// <returns>True if client connected succesfully.</returns>
+        public bool Connect ( string hostname, int port ) {
+            return this._socketClient.Connect(hostname, port);
         }
 
         /// <summary>
@@ -133,8 +143,8 @@ namespace OOCSI {
         /// Subscribe to self (own channel).
         /// </summary>
         /// <param name="handler">Callback handler for incoming data.</param>
-        public void Subscribe ( Handler handler ) {
-            throw new NotImplementedException();
+        public void SubscribeToSelf ( Handler handler ) {
+            this._socketClient.SubscribeToSelf(handler);
         }
 
         /// <summary>
@@ -195,7 +205,9 @@ namespace OOCSI {
         /// <param name="channelName">Channel to send the message to.</param>
         /// <param name="message">Message to send.</param>
         public void Send ( string channelName, string message ) {
-            throw new NotImplementedException();
+            if ( channelName != null && channelName.Trim().Length > 0 ) {
+                this._socketClient.Send(channelName, message);
+            }
         }
 
         /// <summary>

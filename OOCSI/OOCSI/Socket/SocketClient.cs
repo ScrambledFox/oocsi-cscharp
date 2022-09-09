@@ -11,6 +11,10 @@ using OOCSI.Services;
 
 namespace OOCSI.Sockets {
     internal class SocketClient {
+
+        private static readonly string SELF = "SELF";
+        
+        private static int DEFAULT_PORT = 4444;
         private static int MULTICAST_PORT = 4448;
         private static IPAddress MULTICAST_GROUP = IPAddress.Parse("224.0.0.144");
 
@@ -31,6 +35,11 @@ namespace OOCSI.Sockets {
                     this._runner.ShouldReconnect = _shouldReconnect;
                 }
             }
+        }
+
+        public struct UdpState {
+            public UdpClient client;
+            public IPEndPoint ipEndpoint;
         }
 
         private SocketClientRunner _runner;
@@ -62,7 +71,9 @@ namespace OOCSI.Sockets {
                         this.Log($"Trying to connect to {MULTICAST_GROUP}:{MULTICAST_PORT}...");
 
                         CancellationTokenSource cts = new CancellationTokenSource();
-                        Task.Run(() => ConnectFromMulticast(udpClient), cts.Token);
+                        //Task.Run(() => ConnectFromMulticast(udpClient), cts.Token);
+
+                        ConnectFromMulticast(udpClient);
 
                         Thread.Sleep(1000);
                         cts.Cancel();
@@ -85,22 +96,51 @@ namespace OOCSI.Sockets {
         /// </summary>
         /// <param name="socket"></param>
         private void ConnectFromMulticast ( UdpClient udpClient ) {
-            try {
-                byte[] buffer = new byte[256];
-                IPEndPoint endPoint = null;
+            //try {
+            //    byte[] buffer = new byte[256];
+            //    IPEndPoint endPoint = null;
 
-                buffer = udpClient.Receive(ref endPoint);
-                string data = System.Text.Encoding.UTF8.GetString(buffer);
-                if ( data.StartsWith("OOCSI@") ) {
-                    string[] parts = data.Replace("OOCSI@", "").Replace("\\(.*\\)", "").Split(':');
-                    if ( parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0 ) {
-                        this.Connect(parts[0], int.Parse(parts[1]));
-                    }
-                }
+            //    buffer = udpClient.Receive(ref endPoint);
+            //    string data = Encoding.UTF8.GetString(buffer);
+            //    if ( data.StartsWith("OOCSI@") ) {
+            //        string[] parts = data.Replace("OOCSI@", "").Replace("\\(.*\\)", "").Split(':');
+            //        if ( parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0 ) {
+            //            this.Connect(parts[0], int.Parse(parts[1]));
+            //        }
+            //    }
+
+            //} catch ( Exception e ) {
+            //    Log(e.Message);
+            //}
+
+            try {
+
+                UdpState state = new UdpState();
+                state.client = udpClient;
+                state.ipEndpoint = new IPEndPoint(MULTICAST_GROUP, MULTICAST_PORT);
+                udpClient.BeginReceive(new AsyncCallback(OnMulticastCallback), state);
+
+            } catch (  Exception e ) {
+                Log(e.Message);
+            }
+
+        }
+
+        private void OnMulticastCallback (IAsyncResult result) {
+            try {
 
             } catch ( Exception e ) {
-                throw e;
+                Log(e.Message);
             }
+        }
+
+        /// <summary>
+        /// Connect to an OOCSI server at {hostname} at port 4444.
+        /// </summary>
+        /// <param name="hostname">Host Address/IP-Address</param>
+        /// <returns>True if successfully connected.</returns>
+        public bool Connect ( string hostname ) {
+            return this.Connect(hostname, DEFAULT_PORT);
         }
 
         /// <summary>
@@ -110,7 +150,6 @@ namespace OOCSI.Sockets {
         /// <param name="port">Port</param>
         /// <returns>True if sucessfully connected.</returns>
         public bool Connect ( string hostname, int port ) {
-
             if ( this._runner != null ) {
                 this._runner.Disconnect();
             }
@@ -124,6 +163,29 @@ namespace OOCSI.Sockets {
             }
 
             return this._runner.Connected;
+        }
+
+        public void SubscribeToSelf (Handler handler) {
+            if ( this._runner != null ) {
+                this._runner.Send($"subscribe {this._name}");
+            }
+
+            if ( this._channels.ContainsKey(SELF) ) {
+                this.Log($"Renewed subscription for {this._name}");
+            }
+
+            this._channels.Add(SELF, handler);
+        }
+
+        /// <summary>
+        /// Sends a raw message without serialisation.
+        /// </summary>
+        /// <param name="channelName"></param>
+        /// <param name="message"></param>
+        public void Send ( string channelName, string message ) {
+            if ( this._runner != null ) {
+                this._runner.Send($"sendraw {channelName} {message}");
+            }
         }
 
         public void Disconnect () {
