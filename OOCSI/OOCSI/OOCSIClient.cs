@@ -243,7 +243,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns>Connected clients.</returns>
         public string ListClients () {
-            throw new NotImplementedException();
+            return this._socketClient.GetClients();
         }
 
         /// <summary>
@@ -251,7 +251,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns></returns>
         public string ListChannels () {
-            throw new NotImplementedException();
+            return this._socketClient.GetChannels();
         }
 
         /// <summary>

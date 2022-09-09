@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ using OOCSI.Protocol;
 
 namespace OOCSI.Sockets {
     internal class SocketClientRunner {
+
+        private static readonly string SELF = "SELF";
 
         private string _name;
         private string _hostname;
@@ -124,10 +127,8 @@ namespace OOCSI.Sockets {
             this._socket.ReceiveTimeout = 5000;
 
             // Check if we are welcome
-            byte[] buffer = new byte[100];
             if ( this._socket.Connected ) {
-                int bytesReceived = this._socket.Receive(buffer);
-                string msgReceived = Encoding.ASCII.GetString(buffer, 0, bytesReceived);
+                string msgReceived = this.Receive();
 
                 if ( !msgReceived.Contains($"welcome {this._name}") ) {
                     this.Disconnect();
@@ -149,6 +150,81 @@ namespace OOCSI.Sockets {
             return true;
         }
 
+        /// <summary>
+        /// Main communication loop.
+        /// </summary>
+        private void RunCommunication () {
+            try {
+                string fromServer;
+                int cyclesSinceRead = 0;
+                while ( this._socket.Connected ) {
+
+                    while ( this._socket.Available > 0 && !this._noProcess ) {
+                        this.HandleMessage(fromServer = this.Receive());
+                        cyclesSinceRead = 0;
+                    }
+
+                    // Sleep if nothing to read.
+                    Thread.Sleep(10);
+
+                    // If no data comes in for more than 20 seconds, kill and reconnect.
+                    if ( cyclesSinceRead++ > 2000 ) {
+                        this.CloseSocket();
+                        this.Log($"OOCSI disconnected (application level timeout) for {this._name}");
+                        break;
+                    } else if ( cyclesSinceRead++ > 1000 ) {
+                        // After 10 seconds send a ping to seek for connection.
+                        this.Send("ping");
+                    }
+
+
+                }
+            } catch ( Exception e ) {
+                this.CloseSocket();
+                this.Log($"OOCSI disconnected (server unavailable) for {this._name}");
+            }
+        }
+
+        public void HandleMessage ( string fromServer ) {
+
+            // JSON Handler
+            if ( fromServer.StartsWith("{") ) {
+                Dictionary<string, object> dic = this.ParseData(fromServer);
+                string channel = dic.ContainsKey("recipient") ? dic.Remove("recipient").ToString() : "";
+                
+                Handler handler = null;
+                this._channels.TryGetValue(channel, out handler);
+                var regex = new Regex(Regex.Escape(":.*"));
+                if ( handler == null && channel.Equals(regex.Replace(this._name, "", 1) ) ) {
+                    this._channels.TryGetValue(SELF, out handler);
+                }
+
+                string sender = dic.ContainsKey("sender") ? dic.Remove("sender").ToString() : "";
+                string timestamp = dic.ContainsKey("timestamp") ? dic.Remove("timestamp").ToString() : "";
+
+                this.HandleMappedData(channel, fromServer, timestamp, sender, handler, dic);
+            }
+        }
+
+        private void HandleData (string channel,string data, string timestamp, string sender, Handler handler ) {
+            throw new NotImplementedException();
+        }
+
+        private void HandleMappedData ( string channel, string data, string timestamp, string sender, Handler handler, Dictionary<string, object> dataDictionary ) {
+            throw new NotImplementedException();
+        }
+
+        private Dictionary<string, object> ParseData ( string data ) {
+            Dictionary<string, object> dataDictionary = new Dictionary<string, object>();
+            try {
+                dataDictionary = Handler.ParseData(data);
+            } catch ( Exception e ) {
+                dataDictionary = null;
+            }
+
+            return dataDictionary;
+        }
+
         private void Subscribe ( string channel ) {
             if ( !this._socket.Connected ) return;
 
@@ -163,6 +239,37 @@ namespace OOCSI.Sockets {
             if ( !this._socket.Connected ) return;
 
             this._socket.Send(Encoding.ASCII.GetBytes(message));
+        }
+
+        private string Receive () {
+            byte[] buffer = new byte[255];
+            int bytesReceived = this._socket.Receive(buffer);
+            return Encoding.ASCII.GetString(buffer, 0, bytesReceived);
+        }
+
+        public string SendSyncPoll (string msg) {
+            this._tempIncomingMessages.Clear();
+            this.Send(msg);
+            return this.SyncPoll();
+        }
+
+        private string SyncPoll () {
+            return this.SyncPoll(1000);
+        }
+
+        private string SyncPoll (int timeout) {
+            long start = System.DateTime.Now.Millisecond;
+
+            try {
+                while ( this._tempIncomingMessages.Count == 0 || start + timeout > System.DateTime.Now.Millisecond ) {
+                    Thread.Yield();
+                    Thread.Sleep(50);
+                }
+                return this._tempIncomingMessages.Count > 0 ? this._tempIncomingMessages.Dequeue() : null;
+            } catch ( Exception e ) {
+            }
+
+            return null;
         }
 
         public void Disconnect () {

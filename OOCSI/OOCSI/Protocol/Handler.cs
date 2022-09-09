@@ -2,9 +2,15 @@
 using System.Collections.Generic;
 using System.Text;
 
+using Newtonsoft.Json;
+
 namespace OOCSI.Protocol
 {
-    public class Handler {
+    abstract public class Handler {
+
+        public static Dictionary<string, object> ParseData ( string data ) {
+            return JsonConvert.DeserializeObject<Dictionary<string, object>>(data);
+        }
 
     }
 }

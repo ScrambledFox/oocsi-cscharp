@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 
@@ -165,6 +166,10 @@ namespace OOCSI.Sockets {
             return this._runner.Connected;
         }
 
+        /// <summary>
+        /// Subscribe to own channel.
+        /// </summary>
+        /// <param name="handler"></param>
         public void SubscribeToSelf (Handler handler) {
             if ( this._runner != null ) {
                 this._runner.Send($"subscribe {this._name}");
@@ -192,6 +197,26 @@ namespace OOCSI.Sockets {
             throw new NotImplementedException();
         }
 
+        /// <summary>
+        /// Retrieve the connected clients on the server.
+        /// </summary>
+        /// <returns></returns>
+        public string GetClients () {
+            return this._runner != null ? this._runner.SendSyncPoll("clients") : "";
+        }
+
+        /// <summary>
+        /// Retrieve the current channels on the server.
+        /// </summary>
+        /// <returns></returns>
+        public string GetChannels () {
+            return this._runner != null ? this._runner.SendSyncPoll("channels") : "";
+        }
+
+        /// <summary>
+        /// Internal log handler.
+        /// </summary>
+        /// <param name="msg"></param>
         private void Log ( string msg ) {
             this._loggingDelegate?.Invoke(msg);
         }
