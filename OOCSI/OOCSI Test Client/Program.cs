@@ -1,5 +1,4 @@
 ﻿using OOCSI;
-using OOCSI.Protocol;
 
 void Log ( string msg ) {
     Console.WriteLine(System.DateTime.Now.ToString() + " > " + msg);
@@ -13,7 +12,7 @@ OOCSIClient client = new OOCSIClient(Log);
 //client.Connect("127.0.0.1", 4444);
 client.Connect("oocsi.id.tue.nl", 4444);
 
-//client.Subscribe("testing", new EventHandler() {  } );
+client.Subscribe("testing", MessageCallback);
 client.Send("testing", "{\"Message\":\"Hello World!\"}");
 client.Send("testing", "Hello World!");
 

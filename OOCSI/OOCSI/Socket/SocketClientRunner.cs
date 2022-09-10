@@ -206,7 +206,6 @@ namespace OOCSI.Sockets {
                     }
 
                     // Sleep if nothing to read.
-                    //Thread.Sleep(10);
                     this.Sleep(10);
 
                     // If no data comes in for more than 20 seconds, kill and reconnect.
@@ -214,7 +213,7 @@ namespace OOCSI.Sockets {
                         this.CloseSocket();
                         this.Log($"OOCSI disconnected (application level timeout) for {this._name}");
                         break;
-                    } else if ( cyclesSinceRead++ > 1000 ) {
+                    } else if ( cyclesSinceRead++ > 1500 ) {
                         // After 10 seconds send a ping to seek for connection.
                         this.Log("We haven't received a ping from the server in a long time! Sending our own ping.");
                         this.Send("ping");
