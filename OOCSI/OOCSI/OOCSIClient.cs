@@ -50,7 +50,7 @@ namespace OOCSI {
 
             // Set a standard random name if none has been set yet.
             if ( name == null || name.Length == 0 ) {
-                name = "OOCSI_CSHARP_" + Guid.NewGuid().ToString();
+                name = "OOCSI_CSHARP_"; /*Guid.NewGuid().ToString();*/
             }
 
             if ( name.Contains(" ") ) {
