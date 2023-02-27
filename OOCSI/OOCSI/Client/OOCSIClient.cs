@@ -7,7 +7,7 @@ using OOCSI.Protocol;
 using OOCSI.Services;
 using OOCSI.Data;
 
-namespace OOCSI {
+namespace OOCSI.Client {
     public class OOCSIClient {
         private SocketClient _socketClient;
         private string _name;
@@ -21,6 +21,8 @@ namespace OOCSI {
 
         public delegate void LoggingDelegate ( string msg );
         private LoggingDelegate _logHandler;
+
+        public event EventHandler<OOCSIMessageReceivedEventArgs> OnMessageReceived;
 
         /// <summary>
         /// Creates a new OOCSI client with a random name.
@@ -46,20 +48,20 @@ namespace OOCSI {
         /// <param name="logHandler">Logging delegate method.</param>
         public OOCSIClient ( string name, LoggingDelegate logHandler ) {
             // Setup logging method
-            this._logHandler = logHandler;
+            _logHandler = logHandler;
 
             // Set a standard random name if none has been set yet.
             if ( name == null || name.Length == 0 ) {
-                name = "OOCSI_CSHARP_"; /*Guid.NewGuid().ToString();*/
+                name = "OOCSICSharp_" + Guid.NewGuid().ToString().Substring(0, 5);
             }
 
             if ( name.Contains(" ") ) {
-                this.Log("[ERROR] OOCSI name cannot contain spaces");
-                this.Log(" - OOCSI connection aborted");
+                Log("[ERROR] OOCSI name cannot contain spaces");
+                Log(" - OOCSI connection aborted");
                 return;
             }
 
-            this._name = name;
+            _name = name;
             _socketClient = new SocketClient(name, _channels, _services, logHandler);
 
             var assembly = Assembly.GetExecutingAssembly();
@@ -67,7 +69,7 @@ namespace OOCSI {
                 GetCustomAttribute<AssemblyInformationalVersionAttribute>().
                 InformationalVersion;
 
-            this.Log("OOCSI-CSHARP client v" + informationVersion + " started with client handle: " + name);
+            Log("OOCSI-CSHARP client v" + informationVersion + " started with client handle: " + name);
         }
 
         /// <summary>
@@ -75,7 +77,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns>True if client connected succesfully.</returns>
         public bool Connect () {
-            return this._socketClient.StartMulticastLookup();
+            return _socketClient.StartMulticastLookup();
         }
 
         /// <summary>
@@ -85,7 +87,7 @@ namespace OOCSI {
         /// <param name="port">Port where the server is running on.</param>
         /// <returns>True if client connected succesfully.</returns>
         public bool Connect ( string hostname ) {
-            return this._socketClient.Connect(hostname);
+            return _socketClient.Connect(hostname);
         }
 
         /// <summary>
@@ -95,7 +97,7 @@ namespace OOCSI {
         /// <param name="port">Port where the server is running on.</param>
         /// <returns>True if client connected succesfully.</returns>
         public bool Connect ( string hostname, int port ) {
-            return this._socketClient.Connect(hostname, port);
+            return _socketClient.Connect(hostname, port);
         }
 
         /// <summary>
@@ -103,7 +105,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns>True if client disconnected succesfully.</returns>
         public void Disconnect () {
-            this._socketClient.Disconnect();
+            _socketClient.Disconnect();
         }
 
         ///// <summary>
@@ -135,8 +137,11 @@ namespace OOCSI {
         /// </summary>
         /// <param name="channel">Channel name</param>
         /// <param name="handler">Callback handler for incoming data.</param>
-        public void Subscribe ( string channel, Handler handler ) {
-            throw new NotImplementedException();
+        //public void Subscribe ( string channel, Handler handler ) {
+        //    throw new NotImplementedException();
+        //}
+        public void Subscribe ( string channelName, Handler handler ) {
+            _socketClient.Subscribe(channelName, handler);
         }
 
         /// <summary>
@@ -144,7 +149,7 @@ namespace OOCSI {
         /// </summary>
         /// <param name="handler">Callback handler for incoming data.</param>
         public void SubscribeToSelf ( Handler handler ) {
-            this._socketClient.SubscribeToSelf(handler);
+            _socketClient.SubscribeToSelf(handler);
         }
 
         /// <summary>
@@ -206,7 +211,7 @@ namespace OOCSI {
         /// <param name="message">Message to send.</param>
         public void Send ( string channelName, string message ) {
             if ( channelName != null && channelName.Trim().Length > 0 ) {
-                this._socketClient.Send(channelName, message);
+                _socketClient.Send(channelName, message);
             }
         }
 
@@ -215,7 +220,7 @@ namespace OOCSI {
         /// </summary>
         /// <param name="channelName">Channel to sent the data to.</param>
         /// <param name="data">Data to send as a dictionary with a string key and a general object value.</param>
-        public void Send ( string channelName, Dictionary<string, Object> data ) {
+        public void Send ( string channelName, Dictionary<string, object> data ) {
             throw new NotImplementedException();
         }
 
@@ -224,8 +229,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns>New OOCSI device instance</returns>
         public OOCSIDevice HeyOOCSI () {
-            //return new OOCSIDevice(this, this._name);
-            throw new NotImplementedException();
+            return new OOCSIDevice(this, _name);
         }
 
         /// <summary>
@@ -234,8 +238,7 @@ namespace OOCSI {
         /// <param name="deviceName">Name of the created OOCSI device.</param>
         /// <returns>New OOCSI device instance</returns>
         public OOCSIDevice HeyOOCSI ( string deviceName ) {
-            //return new OOCSIDevice(this, deviceName);
-            throw new NotImplementedException();
+            return new OOCSIDevice(this, deviceName);
         }
 
         /// <summary>
@@ -243,7 +246,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns>Connected clients.</returns>
         public string ListClients () {
-            return this._socketClient.GetClients();
+            return _socketClient.GetClients();
         }
 
         /// <summary>
@@ -251,7 +254,7 @@ namespace OOCSI {
         /// </summary>
         /// <returns></returns>
         public string ListChannels () {
-            return this._socketClient.GetChannels();
+            return _socketClient.GetChannels();
         }
 
         /// <summary>
@@ -264,11 +267,11 @@ namespace OOCSI {
         }
 
         /// <summary>
-        /// Logging
+        /// Logs a message to the logging delegate.
         /// </summary>
         /// <param name="msg"></param>
-        private void Log ( string msg ) {
-            this._logHandler?.Invoke(msg);
+        public void Log ( string msg ) {
+            _logHandler?.Invoke(msg);
         }
 
     }

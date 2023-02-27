@@ -9,6 +9,7 @@ using System.Linq;
 
 using OOCSI.Services;
 using OOCSI.Protocol;
+using OOCSI.Client;
 
 namespace OOCSI.Sockets {
     internal class SocketClientRunner {
@@ -143,9 +144,6 @@ namespace OOCSI.Sockets {
             }
 
             return this.DoConnectionHandshake();
-            
-            this.Log($"Connected to OOCSI server at {this._hostname}:{this._port}");
-            return this._connected = true;
         }
 
         private void ConnectSocket () {
@@ -200,7 +198,6 @@ namespace OOCSI.Sockets {
                 while ( this._socket.Connected ) {
 
                     while ( this._socket.Available > 0 && !this._noProcess ) {
-                        this.Log("RECEIVING");
                         this.HandleMessage(fromServer = this.Receive());
                         cyclesSinceRead = 0;
                     }
@@ -224,6 +221,7 @@ namespace OOCSI.Sockets {
             } catch ( Exception e ) {
                 this.CloseSocket();
                 this.Log($"OOCSI disconnected (server unavailable) for {this._name}");
+                this.Log($"We got an error: {e.Message}");
             }
         }
 
@@ -237,10 +235,10 @@ namespace OOCSI.Sockets {
             if ( fromServer.StartsWith("{") ) {
                 Dictionary<string, object> dic = this.ParseData(fromServer);
                 string channel = dic.ContainsKey("recipient") ? dic.Remove("recipient").ToString() : "";
-                
+
                 Handler handler = null;
                 this._channels.TryGetValue(channel, out handler);
-                if ( handler == null && channel.Equals(regex.Replace(this._name, "", 1) ) ) {
+                if ( handler == null && channel.Equals(regex.Replace(this._name, "", 1)) ) {
                     this._channels.TryGetValue(SELF, out handler);
                 }
 
@@ -265,7 +263,7 @@ namespace OOCSI.Sockets {
             string chn = tokens[1];
             Handler chnHandler = this.GetChannel(chn);
 
-            if ( chnHandler == null && chn.Equals(regex.Replace(this._name, "", 1))) {
+            if ( chnHandler == null && chn.Equals(regex.Replace(this._name, "", 1)) ) {
                 chnHandler = this.GetChannel(SELF);
             }
 
@@ -305,7 +303,7 @@ namespace OOCSI.Sockets {
             return dataDictionary;
         }
 
-        private void Subscribe ( string channel ) {
+        public void Subscribe ( string channel ) {
             if ( !this._socket.Connected ) return;
 
             this.Send($"subscribe {channel}");
@@ -313,7 +311,7 @@ namespace OOCSI.Sockets {
             if ( this._channels.ContainsKey("channel") ) {
                 this.Log($"Reconnected subscription to {channel}");
             }
-        } 
+        }
 
         public void Send ( string message ) {
             if ( this._socket == null || !this._socket.Connected ) return;
@@ -335,7 +333,7 @@ namespace OOCSI.Sockets {
             return Encoding.ASCII.GetString(buffer, 0, bytesReceived);
         }
 
-        public string SendSyncPoll (string msg) {
+        public string SendSyncPoll ( string msg ) {
             this._tempIncomingMessages.Clear();
             this.Send(msg);
             return this.SyncPoll();
@@ -345,7 +343,7 @@ namespace OOCSI.Sockets {
             return this.SyncPoll(1000);
         }
 
-        private string SyncPoll (int timeout) {
+        private string SyncPoll ( int timeout ) {
             long start = System.DateTime.Now.Millisecond;
 
             try {
@@ -398,7 +396,7 @@ namespace OOCSI.Sockets {
             }
         }
 
-        private Handler GetChannel ( string channel ) { 
+        private Handler GetChannel ( string channel ) {
             Handler handler = null;
             this._channels.TryGetValue(channel, out handler);
             return handler;

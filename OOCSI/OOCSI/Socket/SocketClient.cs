@@ -9,12 +9,13 @@ using System.Net.Sockets;
 
 using OOCSI.Protocol;
 using OOCSI.Services;
+using OOCSI.Client;
 
 namespace OOCSI.Sockets {
     internal class SocketClient {
 
         private static readonly string SELF = "SELF";
-        
+
         private static int DEFAULT_PORT = 4444;
         private static int MULTICAST_PORT = 4448;
         private static IPAddress MULTICAST_GROUP = IPAddress.Parse("224.0.0.144");
@@ -121,17 +122,17 @@ namespace OOCSI.Sockets {
                 state.ipEndpoint = new IPEndPoint(MULTICAST_GROUP, MULTICAST_PORT);
                 udpClient.BeginReceive(new AsyncCallback(OnMulticastCallback), state);
 
-            } catch (  Exception e ) {
-                Log(e.Message);
+            } catch ( Exception e ) {
+                Log($"  - SocketError: {e.Message}");
             }
 
         }
 
-        private void OnMulticastCallback (IAsyncResult result) {
+        private void OnMulticastCallback ( IAsyncResult result ) {
             try {
-
+                return;
             } catch ( Exception e ) {
-                Log(e.Message);
+                Log($"  - SocketError: {e.Message}");
             }
         }
 
@@ -167,10 +168,37 @@ namespace OOCSI.Sockets {
         }
 
         /// <summary>
+        /// Subscribe to a channel.
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <param name="handler"></param>
+        public void Subscribe ( string channel, Handler handler ) {
+            if ( this._runner != null && !this.IsSubscribed(channel) ) {
+                this._runner.Subscribe(channel);
+            }
+
+            this.AddHandler(channel, handler);
+        }
+
+        private void AddHandler ( string channel, Handler handler ) {
+            if ( this._channels.ContainsKey(channel) ) {
+                Handler h = this._channels[channel];
+                if ( h is MultiHandler ) {
+                    MultiHandler mh = (MultiHandler)h;
+                    mh.Add(handler);
+                }
+            } else {
+                this._channels.Add(channel, new MultiHandler(handler));
+            }
+        }
+
+        private bool IsSubscribed ( string channel ) => this._channels.ContainsKey(channel);
+
+        /// <summary>
         /// Subscribe to own channel.
         /// </summary>
         /// <param name="handler"></param>
-        public void SubscribeToSelf (Handler handler) {
+        public void SubscribeToSelf ( Handler handler ) {
             if ( this._runner != null ) {
                 this._runner.Send($"subscribe {this._name}");
             }

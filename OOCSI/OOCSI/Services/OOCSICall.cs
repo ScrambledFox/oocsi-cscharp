@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-
+using OOCSI.Client;
 using OOCSI.Protocol;
 
 namespace OOCSI.Services {

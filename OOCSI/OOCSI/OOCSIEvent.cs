@@ -48,7 +48,7 @@ namespace OOCSI {
                     try {
                         return int.Parse(result.ToString());
                     } catch ( Exception ) {
-                        return defaultValue;    
+                        return defaultValue;
                     }
                 }
             } else {
@@ -76,7 +76,7 @@ namespace OOCSI {
         public float GetFloat ( string key, float defaultValue ) {
             object result = this.GetObject(key);
             if ( result != null ) {
-                if ( result is float) {
+                if ( result is float ) {
                     return ((float)result);
                 } else {
                     try {
@@ -131,4 +131,11 @@ namespace OOCSI {
             return obj;
         }
     }
+
+    public sealed class OOCSIMessageReceivedEventArgs : EventArgs {
+        public OOCSIMessageReceivedEventArgs ( string channel, string sender, Dictionary<string, object> data, DateTime timestamp ) {
+
+        }
+    }
+
 }
