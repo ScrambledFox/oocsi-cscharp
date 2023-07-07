@@ -12,7 +12,7 @@ using OOCSI.Services;
 using OOCSI.Client;
 
 namespace OOCSI.Sockets {
-    internal class SocketClient {
+    internal class SocketClient : SocketClientRunner {
 
         private static readonly string SELF = "SELF";
 
@@ -20,31 +20,13 @@ namespace OOCSI.Sockets {
         private static int MULTICAST_PORT = 4448;
         private static IPAddress MULTICAST_GROUP = IPAddress.Parse("224.0.0.144");
 
-        private string _name;
-        private bool _shouldReconnect = false;
-
-        private Dictionary<string, Handler> _channels;
-        private Dictionary<string, Responder> _services;
-
-        private OOCSIClient.LoggingDelegate _loggingDelegate;
-
-        public bool IsConnected => this._runner != null && this._runner.Connected;
-        public bool ShouldReconnect {
-            get { return _shouldReconnect; }
-            set {
-                _shouldReconnect = value;
-                if ( this._runner != null ) {
-                    this._runner.ShouldReconnect = _shouldReconnect;
-                }
-            }
-        }
+        public bool IsConnected => this._connected;
+        public bool ShouldReconnect { get; set; }
 
         public struct UdpState {
             public UdpClient client;
             public IPEndPoint ipEndpoint;
         }
-
-        private SocketClientRunner _runner;
 
         /// <summary>
         /// Creates a new socket with a given name.
@@ -52,11 +34,10 @@ namespace OOCSI.Sockets {
         /// <param name="name">Client name</param>
         /// <param name="channels"></param>
         /// <param name="services"></param>
-        public SocketClient ( string name, Dictionary<string, Handler> channels, Dictionary<string, Responder> services, OOCSIClient.LoggingDelegate loggingDelegate ) {
+        public SocketClient ( string name, OOCSIClient.LoggingDelegate loggingDelegate ) : base(loggingDelegate) {
             this._name = name;
-            this._channels = channels;
-            this._services = services;
-            this._loggingDelegate = loggingDelegate;
+
+            this._channels = new Dictionary<string, Handler>();
         }
 
         /// <summary>
@@ -152,93 +133,69 @@ namespace OOCSI.Sockets {
         /// <param name="port">Port</param>
         /// <returns>True if sucessfully connected.</returns>
         public bool Connect ( string hostname, int port ) {
-            if ( this._runner != null ) {
-                this._runner.Disconnect();
-            }
+            this._hostname = hostname;
+            this._port = port;
 
-            this._runner = new SocketClientRunner(this._name, hostname, port, this._channels, this._services, this._loggingDelegate);
-            this._runner.ShouldReconnect = this._shouldReconnect;
-
-            while ( this._runner.IsConnecting ) {
+            while ( this.IsConnecting ) {
                 // BUG:? Suspends the calling thread instead of the runner thread?
-                this._runner.Sleep(100);
+                this.Sleep(100);
             }
 
-            return this._runner.Connected;
+            return this.IsConnected;
         }
 
         /// <summary>
         /// Subscribe to a channel.
         /// </summary>
         /// <param name="channel"></param>
-        /// <param name="handler"></param>
-        public void Subscribe ( string channel, Handler handler ) {
-            if ( this._runner != null && !this.IsSubscribed(channel) ) {
-                this._runner.Subscribe(channel);
+        /// <param name="callback"></param>
+        public void Subscribe ( string channel, MessageCallback callback ) {
+            if ( !this.IsSubscribed(channel) ) {
+                this.NotifyOfSubscription(channel);
             }
 
-            this.AddHandler(channel, handler);
+            this.AddHandler(channel, new BasicHandler(callback));
         }
-
-        private void AddHandler ( string channel, Handler handler ) {
-            if ( this._channels.ContainsKey(channel) ) {
-                Handler h = this._channels[channel];
-                if ( h is MultiHandler ) {
-                    MultiHandler mh = (MultiHandler)h;
-                    mh.Add(handler);
-                }
-            } else {
-                this._channels.Add(channel, new MultiHandler(handler));
-            }
-        }
-
-        private bool IsSubscribed ( string channel ) => this._channels.ContainsKey(channel);
 
         /// <summary>
         /// Subscribe to own channel.
         /// </summary>
         /// <param name="handler"></param>
-        public void SubscribeToSelf ( Handler handler ) {
-            if ( this._runner != null ) {
-                this._runner.Send($"subscribe {this._name}");
-            }
+        public void SubscribeToSelf ( MessageCallback callback) {
+            this.NotifyOfSubscription(SELF);
 
             if ( this._channels.ContainsKey(SELF) ) {
-                this.Log($"Renewed subscription for {this._name}");
+                this.Log($"Renewed subscription for {SELF}");
             }
 
-            this._channels.Add(SELF, handler);
+            this.AddHandler(SELF, new BasicHandler(callback));
+        }
+
+
+        /// <summary>
+        /// Add Handler
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <param name="handler"></param>
+        private void AddHandler ( string channel, Handler handler ) {
+            if ( this.IsSubscribed(channel) ) {
+                Handler h = this.GetHandler(channel);
+                if ( h is MultiHandler ) {
+                    MultiHandler mh = (MultiHandler)h;
+                    mh.Add(handler);
+                }
+            } else {
+                this._channels.Add(channel, handler);
+            }
         }
 
         /// <summary>
         /// Sends a raw message without serialisation.
         /// </summary>
-        /// <param name="channelName"></param>
+        /// <param name="channel"></param>
         /// <param name="message"></param>
-        public void Send ( string channelName, string message ) {
-            if ( this._runner != null ) {
-                this._runner.Send($"sendraw {channelName} {message}");
-            }
-        }
-
-        public void Disconnect () {
-            throw new NotImplementedException();
-        }
-
-        /// <summary>
-        /// Retrieve the connected clients on the server.
-        /// </summary>
-        /// <returns></returns>
-        public string GetClients () {
-            return this._runner != null ? this._runner.SendSyncPoll("clients") : "";
-        }
-
-        /// <summary>
-        /// Retrieve the current channels on the server.
-        /// </summary>
-        /// <returns></returns>
-        public string GetChannels () {
-            return this._runner != null ? this._runner.SendSyncPoll("channels") : "";
+        public void Send ( string channel, string message ) {
+            this.SendRaw(channel, message);
         }
 
         /// <summary>

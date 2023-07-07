@@ -1,5 +1,7 @@
 ﻿using OOCSI;
 using OOCSI.Client;
+using OOCSI.Protocol;
+using System.Collections.Generic;
 
 internal class Program {
     private static void Main ( string[] args ) {
@@ -7,23 +9,25 @@ internal class Program {
             Console.WriteLine(DateTime.Now.ToString() + " > " + msg);
         }
 
-        void OnOOCSIMessage ( object sender, OOCSIMessageReceivedEventArgs args ) {
-            Log($"Received a message from callback: {args}");
+        void OnMessage ( OOCSIEvent oocsiEvent ) {
+            Log(oocsiEvent.GetInt("color", 0).ToString());
         }
 
         OOCSIClient client = new OOCSIClient(Log);
 
-        client.OnMessageReceived += OnOOCSIMessage;
-
         //client.Connect("127.0.0.1", 4444);
         client.Connect("oocsi.id.tue.nl", 4444);
 
-        client.Subscribe("testing", null);
+        client.Subscribe("testing", OnMessage);
 
-        client.Send("testing", "{\"Message\":\"Hello World!\"}");
-        client.Send("testing", "Hello World!");
+        //client.Send("testing", "{\"Message\":\"Hello World!\"}");
+        //client.Send("testing", "Hello World!");
 
-        client.HeyOOCSI();
+        //client.SubscribeToSelf(OnMessage);
+
+        //client.Send(client.Name, "{\"Message\":\"Hello Me!\"}");
+
+        //client.HeyOOCSI();
     }
-}
 
+}

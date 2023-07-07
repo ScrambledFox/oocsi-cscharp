@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace OOCSI {
     public class OOCSIEvent {
@@ -9,11 +8,11 @@ namespace OOCSI {
         protected string _sender;
 
         protected Dictionary<string, object> _data;
-        protected System.DateTime _timestamp;
+        protected DateTime _timestamp;
 
-        public OOCSIEvent ( string channelname, Dictionary<string, object> data, string sender, long timestamp ) : this(channelname, data, sender, new System.DateTime(timestamp)) { }
+        public OOCSIEvent ( string channelname, Dictionary<string, object> data, string sender, long timestamp ) : this(channelname, data, sender, new DateTime(timestamp)) { }
 
-        public OOCSIEvent ( string channelname, Dictionary<string, object> data, string sender ) : this(channelname, data, sender, System.DateTime.Now) { }
+        public OOCSIEvent ( string channelname, Dictionary<string, object> data, string sender ) : this(channelname, data, sender, DateTime.Now) { }
 
         public OOCSIEvent ( string channelname, Dictionary<string, object> data, string sender, DateTime timestamp ) {
             this._channelname = channelname;

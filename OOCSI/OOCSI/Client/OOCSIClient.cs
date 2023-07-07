@@ -6,14 +6,14 @@ using OOCSI.Sockets;
 using OOCSI.Protocol;
 using OOCSI.Services;
 using OOCSI.Data;
+using System.Runtime.CompilerServices;
 
 namespace OOCSI.Client {
+    public delegate void MessageCallback ( OOCSIEvent oocsiEvent );
+
     public class OOCSIClient {
         private SocketClient _socketClient;
         private string _name;
-
-        private Dictionary<string, Handler> _channels = new Dictionary<string, Handler>();
-        private Dictionary<string, Responder> _services = new Dictionary<string, Responder>();
 
         public string Name { get => _name; }
         public bool IsConnected => _socketClient.IsConnected;
@@ -62,7 +62,7 @@ namespace OOCSI.Client {
             }
 
             _name = name;
-            _socketClient = new SocketClient(name, _channels, _services, logHandler);
+            _socketClient = new SocketClient(name, logHandler);
 
             var assembly = Assembly.GetExecutingAssembly();
             var informationVersion = assembly.
@@ -136,20 +136,17 @@ namespace OOCSI.Client {
         /// Subscribe to a OOCSI channel.
         /// </summary>
         /// <param name="channel">Channel name</param>
-        /// <param name="handler">Callback handler for incoming data.</param>
-        //public void Subscribe ( string channel, Handler handler ) {
-        //    throw new NotImplementedException();
-        //}
-        public void Subscribe ( string channelName, Handler handler ) {
-            _socketClient.Subscribe(channelName, handler);
+        /// <param name="callback">Callback handler for incoming data.</param>
+        public void Subscribe ( string channel, MessageCallback callback ) { 
+            _socketClient.Subscribe( channel, callback );
         }
 
         /// <summary>
-        /// Subscribe to self (own channel).
+        /// Subscribe to self. Direct-To-Direct Communication.
         /// </summary>
-        /// <param name="handler">Callback handler for incoming data.</param>
-        public void SubscribeToSelf ( Handler handler ) {
-            _socketClient.SubscribeToSelf(handler);
+        /// <param name="messageCallback"></param>
+        public void SubscribeToSelf ( MessageCallback messageCallback ) {
+            _socketClient.SubscribeToSelf(messageCallback);
         }
 
         /// <summary>

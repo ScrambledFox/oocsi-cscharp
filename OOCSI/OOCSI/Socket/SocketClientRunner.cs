@@ -16,17 +16,17 @@ namespace OOCSI.Sockets {
 
         private static readonly string SELF = "SELF";
 
-        private string _name;
-        private string _hostname;
-        private int _port;
+        protected string _name;
+        protected string _hostname;
+        protected int _port;
 
         // IO
         private Socket _socket;
-        private OOCSIClient.LoggingDelegate _loggingDelegate;
+        protected OOCSIClient.LoggingDelegate _loggingDelegate;
 
         // Connection Flags
-        private bool _connected = false;
-        private bool _shouldReconnect = false;
+        protected bool _connected = false;
+        protected bool _shouldReconnect = false;
 
         private int _reconnectCountDown = 100;
         private bool _relinquished = false;
@@ -37,8 +37,7 @@ namespace OOCSI.Sockets {
         private bool _noProcess = false;
 
         // Management
-        private Dictionary<string, Handler> _channels;
-        private Dictionary<string, Responder> _services;
+        protected Dictionary<string, Handler> _channels;
         private List<OOCSICall> _openCalls;
         private Queue<string> _tempIncomingMessages;
 
@@ -46,59 +45,20 @@ namespace OOCSI.Sockets {
         private Thread _executor;
 
         // Properties
-        public bool ShouldReconnect { get => this._shouldReconnect; set { this._shouldReconnect = value; } }
-        public bool IsConnecting { get => !this._connected && this._reconnectCountDown > 0; }
-        public bool Connected => this._connected;
+        protected bool IsConnecting { get => !this._connected && this._reconnectCountDown > 0; }
 
-        public SocketClientRunner (
-            string name,
-            string hostname,
-            int port,
-            Dictionary<string, Handler> channels,
-            Dictionary<string, Responder> services,
-            OOCSIClient.LoggingDelegate loggingDelegate = null ) {
-
-            this._name = name;
-            this._hostname = hostname;
-            this._port = port;
-            this._channels = channels;
-            this._services = services;
-
+        protected SocketClientRunner ( OOCSIClient.LoggingDelegate loggingDelegate = null ) {
             this._openCalls = new List<OOCSICall>();
             this._tempIncomingMessages = new Queue<string>();
+
+            this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             this._executor = new Thread(new ThreadStart(this.Run));
             this._executor.Start();
             this._loggingDelegate = loggingDelegate;
         }
 
-        /// <summary>
-        /// Used for testing.
-        /// </summary>
-        /// <param name="name"></param>
-        /// <param name="hostname"></param>
-        /// <param name="port"></param>
-        /// <param name="channels"></param>
-        /// <param name="services"></param>
-        /// <param name="noPing"></param>
-        /// <param name="noProcess"></param>
-        public SocketClientRunner (
-            string name,
-            string hostname,
-            int port,
-            Dictionary<string, Handler> channels,
-            Dictionary<string, Responder> services,
-            bool noPing,
-            bool noProcess,
-            OOCSIClient.LoggingDelegate loggingDelegate = null
-            )
-            : this(name, hostname, port, channels, services, loggingDelegate) {
-
-            this._noPing = noPing;
-            this._noProcess = noProcess;
-        }
-
-        public void Run () {
+        protected void Run () {
 
             try {
                 int connections = 0;
@@ -117,7 +77,7 @@ namespace OOCSI.Sockets {
                         this.Sleep(1000);
                     }
 
-                    if ( this.Connected ) {
+                    if ( this._connected ) {
                         this.RunCommunication();
                     } else {
                         this.Sleep(5000);
@@ -132,7 +92,7 @@ namespace OOCSI.Sockets {
 
         }
 
-        public bool AttemptToConnect () {
+        protected bool AttemptToConnect () {
 
             try {
                 this.ConnectSocket();
@@ -147,30 +107,44 @@ namespace OOCSI.Sockets {
         }
 
         private void ConnectSocket () {
-            this._socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            this._socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             this._socket.NoDelay = true;
             // Change packet priority? Socket.TrafficClass.
 
             this._socket.Connect(this._hostname, this._port);
         }
 
-        public bool DoConnectionHandshake () {
+        private bool MessageArrayContainsWelcome ( string[] messages ) {
+            foreach ( string msg in messages) {
+                if ( msg.Contains($"welcome {this._name}") ) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// TODO: Don't just check first received message?
+        /// </summary>
+        /// <returns></returns>
+        protected bool DoConnectionHandshake () {
             // Short timeout time.
             this._socket.ReceiveTimeout = 5000;
 
             // Check if we are welcome
             if ( this._socket.Connected ) {
-                string msgReceived = null;
+                string[] msgsReceived = null;
                 try {
-                    msgReceived = this.Receive();
+                    msgsReceived = this.Receive();
                 } catch ( Exception e ) {
-                    this.Log($"OOCSI Server receive failed: {e.Message}");
+                    this.Log($"OOCSI Server receiving failed: {e.Message}");
                 }
 
-                if ( msgReceived == null || !msgReceived.Contains($"welcome {this._name}") ) {
+                // Check if one of the messages contains our welcome.
+                if ( msgsReceived == null || !this.MessageArrayContainsWelcome(msgsReceived)) {
                     this.Disconnect();
                     this.Log("OOCSI Server didn't reply to our hello. :(");
-                    // Throw exception?
                     return false;
                 }
 
@@ -180,8 +154,9 @@ namespace OOCSI.Sockets {
 
                 this._connected = true;
 
+                // Notify server of resubscriptions
                 foreach ( string channel in this._channels.Keys ) {
-                    this.Subscribe(channel);
+                    this.NotifyOfSubscription(channel);
                 }
             }
 
@@ -193,12 +168,14 @@ namespace OOCSI.Sockets {
         /// </summary>
         private void RunCommunication () {
             try {
-                string fromServer;
                 int cyclesSinceRead = 0;
                 while ( this._socket.Connected ) {
-
                     while ( this._socket.Available > 0 && !this._noProcess ) {
-                        this.HandleMessage(fromServer = this.Receive());
+                        string[] msgs = this.Receive();
+                        foreach ( string msg in msgs ) {
+                            this.HandleMessage(msg);
+                        }
+
                         cyclesSinceRead = 0;
                     }
 
@@ -211,7 +188,7 @@ namespace OOCSI.Sockets {
                         this.Log($"OOCSI disconnected (application level timeout) for {this._name}");
                         break;
                     } else if ( cyclesSinceRead++ > 1500 ) {
-                        // After 10 seconds send a ping to seek for connection.
+                        // After 15 seconds send a ping to seek for connection.
                         this.Log("We haven't received a ping from the server in a long time! Sending our own ping.");
                         this.Send("ping");
                     }
@@ -225,20 +202,27 @@ namespace OOCSI.Sockets {
             }
         }
 
-        public void HandleMessage ( string fromServer ) {
-
-            this.Log($"OOCSI Message received: {fromServer}");
+        protected void HandleMessage ( string fromServer ) {
+            this.Log($"TRAFFIC RECEIVED: {fromServer}");
 
             var regex = new Regex(Regex.Escape(":.*"));
 
             // JSON Handler
             if ( fromServer.StartsWith("{") ) {
                 Dictionary<string, object> dic = this.ParseData(fromServer);
-                string channel = dic.ContainsKey("recipient") ? dic.Remove("recipient").ToString() : "";
+                object channelObject = null;
+                dic.TryGetValue("recipient", out channelObject);
+                dic.Remove("recipient").ToString();
+
+                string channel = "";
+                if ( channelObject != null ) {
+                    channel = channelObject.ToString();
+                }
 
                 Handler handler = null;
                 this._channels.TryGetValue(channel, out handler);
-                if ( handler == null && channel.Equals(regex.Replace(this._name, "", 1)) ) {
+                this.Log(handler == null ? "NOT SUBSCRIBED" : "SUBSCRIBED");
+                if ( handler == null &Equals(regex.Replace(this._name, "", 1)) ) {
                     this._channels.TryGetValue(SELF, out handler);
                 }
 
@@ -246,6 +230,7 @@ namespace OOCSI.Sockets {
                 string timestamp = dic.ContainsKey("timestamp") ? dic.Remove("timestamp").ToString() : "";
 
                 this.HandleMappedData(channel, fromServer, timestamp, sender, handler, dic);
+                return;
             } else if ( !fromServer.StartsWith("send") && !this._noPing ) {
                 // Any other no send message
                 this._tempIncomingMessages.Enqueue(fromServer);
@@ -276,20 +261,14 @@ namespace OOCSI.Sockets {
             if ( dataDict != null ) {
                 this.HandleMappedData(channel, data, timestamp, sender, handler, dataDict);
             } else if ( handler != null ) {
-                Task.Run(() => handler.Send(sender, data, timestamp, channel, this._name));
+                Task.Run(() => handler.Send(sender, data, timestamp, channel));
             }
         }
 
         private void HandleMappedData ( string channel, string data, string timestamp, string sender, Handler handler, Dictionary<string, object> dataDictionary ) {
-            if ( dataDictionary.ContainsKey(OOCSICall.MESSAGE_HANDLE) ) {
-                object msgHandleObject = null;
+            OOCSIEvent oocsiEvent = new OOCSIEvent(channel, dataDictionary, sender);
 
-                dataDictionary.TryGetValue(OOCSICall.MESSAGE_HANDLE, out msgHandleObject);
-                string msgHandle = (string)msgHandleObject;
-
-                Responder r = null;
-                this._services.TryGetValue(msgHandle, out r);
-            }
+            handler.Receive(sender, dataDictionary, 0x00, channel);
         }
 
         private Dictionary<string, object> ParseData ( string data ) {
@@ -297,29 +276,33 @@ namespace OOCSI.Sockets {
             try {
                 dataDictionary = Handler.ParseData(data);
             } catch ( Exception e ) {
-                dataDictionary = null;
+                throw new Exception("Data parsing from server failed", e);
             }
 
             return dataDictionary;
         }
 
-        public void Subscribe ( string channel ) {
+        protected void NotifyOfSubscription ( string channel ) {
             if ( !this._socket.Connected ) return;
 
             this.Send($"subscribe {channel}");
 
-            if ( this._channels.ContainsKey("channel") ) {
+            if ( this._channels.ContainsKey(channel) ) {
                 this.Log($"Reconnected subscription to {channel}");
             }
         }
 
-        public void Send ( string message ) {
+        protected bool IsSubscribed ( string channel ) => this._channels.ContainsKey(channel);
+
+        protected Handler GetHandler ( string channel ) => this._channels[channel];
+
+        protected void Send ( string message ) {
             if ( this._socket == null || !this._socket.Connected ) return;
 
             byte[] bytes = Encoding.ASCII.GetBytes(message);
             List<byte> buffer = bytes.ToList();
 
-            this.Log($"Sent OOCSI Message: {message}");
+            this.Log($"TRAFFIC SENT: {message}");
 
             // Add line feed ending
             buffer.Add(0x0a);
@@ -327,10 +310,26 @@ namespace OOCSI.Sockets {
             this._socket.Send(buffer.ToArray());
         }
 
-        private string Receive () {
-            byte[] buffer = new byte[255];
+        protected void SendRaw ( string channel, string message ) {
+            this.Send($"sendraw {channel} {message}");
+        }
+
+        /// <summary>
+        /// Receives messages from the socket.
+        /// </summary>
+        /// <returns>Array of messages.</returns>
+        private string[] Receive () {
+            byte[] buffer = new byte[1024];
             int bytesReceived = this._socket.Receive(buffer);
-            return Encoding.ASCII.GetString(buffer, 0, bytesReceived);
+
+            string raw = Encoding.UTF8.GetString(buffer, 0, bytesReceived);
+            string[] lines = raw.Split( new[] { "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            for ( int i = 0; i < lines.Length; i++ ) {
+                lines[i] = lines[i].Replace("\n", "").Replace("\r", "");
+            }
+
+            return lines.Where(s => !string.IsNullOrWhiteSpace(s)).ToArray();
         }
 
         public string SendSyncPoll ( string msg ) {
@@ -358,6 +357,22 @@ namespace OOCSI.Sockets {
             return null;
         }
 
+        /// <summary>
+        /// Retrieve the connected clients on the server.
+        /// </summary>
+        /// <returns></returns>
+        public string GetClients () {
+            return this._connected ? this.SendSyncPoll("clients") : "";
+        }
+        
+        /// <summary>
+        /// Retrieve the current channels on the server.
+        /// </summary>
+        /// <returns></returns>
+        public string GetChannels () {
+            return this._connected ? this.SendSyncPoll("channels") : "";
+        }
+
         public void Disconnect () {
             this._connected = false;
 
@@ -373,7 +388,7 @@ namespace OOCSI.Sockets {
             this.CloseSocket();
         }
 
-        public void Kill () {
+        protected void Kill () {
             this._connected = false;
             this.CloseSocket();
             this.Log("OOCSI connection closed (killed)");
@@ -384,11 +399,9 @@ namespace OOCSI.Sockets {
                 return;
 
             this._socket.Close();
-            this._socket.Dispose();
-            this._socket = null;
         }
 
-        public void Sleep ( int ms ) {
+        protected void Sleep ( int ms ) {
             try {
                 Thread.Sleep(ms);
             } catch ( Exception e ) {
